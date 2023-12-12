@@ -3,42 +3,71 @@ import zipfile
 import os
 import sys
 
-#TODO: Разбиение путей и загрузку архива по его первому имени.
+ARCHIVE_FILE_DEF = ".zip"
+SQL_FILE_DEF = ".sql"
 
-ARCHIVE_FORMAT_DEF = ".zip"
-
-db_name = sys.argv[1]
-input_path = sys.argv[2]
-
+db_name = "null"
+input_path = "null"
 db_user = "postgres"
 db_ipaddr = "localhost"
 db_port = "5432"
 
-with zipfile.ZipFile(input_path, 'r') as zip:
-    # Extract all files from the archive
-    zip.extractall()
-    print("Files extracted successfully.")
+def do_cmd():
+    # global vars
+    global db_user 
+    global db_ipaddr 
+    global db_port
+    # local vars 
+    counter = 0
+    args_len = len(sys.argv)
+    args = sys.argv
+    # state
+    while counter < args_len:
+        match args[counter]:
+            case "-h": # IP адресс
+                counter += 1
+                db_ipaddr = args[counter]
+            case "-p": # Port
+                counter += 1
+                db_port = args[counter]
+            case "-U": # DB Пользователь
+                counter += 1
+                db_user = args[counter]
+            case _:
+                counter += 1
 
-return_code = subprocess.call(["psql", "-h", db_ipaddr, "-p", db_port, "-U", db_user, "-d", db_name, "-f", input_path])
+def main():
+    # global vars
+    global db_name
+    global input_path
+    # do staff
+    do_cmd()
+    db_name = sys.argv[len(sys.argv)-2]
+    input_path = sys.argv[len(sys.argv)-1]
 
-if (return_code != 0):
-    print("ERROR: Something wrong...")
-else:
-    print("Done! Dump file '" + input_path + "' successfuly loaded!")
-"""
+    with zipfile.ZipFile(input_path, 'r') as zip:
+        # Extract all files from the archive
+        zip.extractall()
+        print("Files extracted successfully.")
 
-# Splitting a string using a hyphen as the delimiter
-string = "Alice-Bob-Charlie"
-result = string.split("-")  
-print(result)
+    sql_dump_file = input_path.split(".")[0] + SQL_FILE_DEF
 
+    if os.path.exists(sql_dump_file) == False:
+        print("ERROR: File doesn't exist!")
+        return False
 
-# Specify the path of the ZIP archive file
-zip_path = 'path/to/archive.zip'
+    return_code = subprocess.call(["psql", 
+                                   "-h", db_ipaddr, 
+                                   "-p", db_port, 
+                                   "-U", db_user, 
+                                   "-d", db_name, 
+                                   "-f", sql_dump_file])
 
-# Open the ZIP archive
-with zipfile.ZipFile(zip_path, 'r') as zip:
-    # Extract all files from the archive
-    zip.extractall()
-    print("Files extracted successfully.")
-"""
+    if (return_code != 0):
+        print("ERROR: Something wrong...")
+        return False
+    else:
+        print("Done! Dump file '" + sql_dump_file + "' successfuly loaded!")
+
+    os.remove(sql_dump_file)
+main()
